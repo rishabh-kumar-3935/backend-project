@@ -1,24 +1,46 @@
 import {v2 as cloudinary} from "cloudinary"
 import fs from "fs"
 
+// Debug: Log environment variables at startup
+console.log("Cloudinary Config Loading:")
+console.log("  CLOUDINARY_CLOUD_NAME:", process.env.CLOUDINARY_CLOUD_NAME || "[MISSING]")
+console.log("  CLOUDINARY_API_KEY:", process.env.CLOUDINARY_API_KEY ? "[SET]" : "[MISSING]")
+console.log("  CLOUDINARY_API_SECRET:", process.env.CLOUDINARY_API_SECRET ? "[SET]" : "[MISSING]")
+
+// Validate required env variables exist
+if (!process.env.CLOUDINARY_CLOUD_NAME || !process.env.CLOUDINARY_API_KEY || !process.env.CLOUDINARY_API_SECRET) {
+  console.error("❌ ERROR: Missing Cloudinary environment variables. Check your .env file.")
+  console.error("Required: CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY, CLOUDINARY_API_SECRET")
+}
+
 cloudinary.config({ 
   cloud_name: process.env.CLOUDINARY_CLOUD_NAME, 
-  api_key:process.env.CLOUDINARY_API_KEY, 
+  api_key: process.env.CLOUDINARY_API_KEY, 
   api_secret: process.env.CLOUDINARY_API_SECRET
 });
 
-const uploadOnCloudinary =async(localFilePath)=>{
+const uploadOnCloudinary = async (localFilePath) => {
+  if (!localFilePath) return null
+
+  let response = null
   try {
-    if(!localFilePath)return null;
-    const response = await cloudinary.uploader.upload(localFilePath,{
-      resource_type:"auto"
+    response = await cloudinary.uploader.upload(localFilePath, {
+      resource_type: "auto"
     })
-    //file has been uploaded successfully
-    console.log("file is uploaded on cloudinary",response.url);
-    return response;
+    console.log("file is uploaded on cloudinary", response.url)
+    return response
   } catch (error) {
-    fs.unlinkSync(localFilePath)//remove the locally saved temporary file as teh upload oreparion got failed
-    return null;
+    console.error("Cloudinary upload failed:", error?.message || error)
+    return null
+  } finally {
+    try {
+      if (fs.existsSync(localFilePath)) {
+        fs.unlinkSync(localFilePath)
+        console.log("Local temp file removed:", localFilePath)
+      }
+    } catch (cleanupError) {
+      console.warn("Unable to remove local temp file:", cleanupError?.message || cleanupError)
+    }
   }
 }
 
